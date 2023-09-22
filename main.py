@@ -87,12 +87,29 @@ class Pole():
                 if(f != None and f.white == king.white):
                     break
         
+        for i in range(-2,2+1):
+            for j in range(-2,2+1):
+                if(i == 0 or j == 0 or abs(i) + abs(j) != 3):
+                    continue
+
+                f = self.FigureInPosition(king.position_x + i, king.position_y + j)
+                if(f != None and f.name_figure == ("K" if not king.white else "k")):
+                    return True
+
+        for i in range(-1,2,2):
+            f = self.FigureInPosition(king.position_x + i,
+            king.position_y + (1 if king.white else -1))
+            if(f != None and f.name_figure == ("P" if not king.white else "p")):
+                return True
+
 
 
         return False
 
 
 class Figure():
+    attacking: bool = False
+    attacking_old: bool = False
     position_x:int  = 0
     position_y:int = 0
     name_figure:str = 'P'
@@ -120,6 +137,7 @@ class Knight(Figure):
         self.pole.EatingFigure(x,y)
         self.position_x = x
         self.position_y = y
+        self.startposition = False
         return True
 
 
@@ -162,6 +180,7 @@ class Bishop(Figure):
         self.pole.EatingFigure(x,y)
         self.position_x = x
         self.position_y = y
+        self.startposition = False
         return True
 
 
@@ -194,11 +213,31 @@ class Queen(Figure):
         self.pole.EatingFigure(x,y)
         self.position_x = x
         self.position_y = y
+        self.startposition = False
         return True
 
 
 class King(Figure):
     def MoveToPosition(self, x: int, y: int) -> bool:
+        tmp = 0
+        if(abs(self.position_x - x) == 2 and self.position_y == y):
+            tmp = (1 if x < self.position_x else 8)
+        
+        flag = True
+        for i in range(min(self.position_x, tmp) + 1, max(self.position_x,tmp) - 1):
+            if(self.pole.FigureInPosition(i,y) != None):
+                flag = False
+        f = self.pole.FigureInPosition(tmp,y)
+        if(flag and self.startposition and f != None and f.startposition 
+            and f.name_figure == ("R" if self.white else "r")):
+            f.position_x = self.position_x + (1 if self.position_x < f.position_x else -1)
+            f.position_y = y
+            self.position_x = self.position_x + (2 if self.position_x < f.position_x else -2)
+            self.position_y = y
+            self.startposition = False
+            return True
+            
+
         if(max(abs(x - self.position_x), abs(y - self.position_y)) > 1):
             return False
 
@@ -254,7 +293,11 @@ class Drow():
         for f in figures:
             self.old_figure.append(Figure(f.position_x, f.position_y, pole, f.name_figure))
 
-    def ActiveFigure(self, f_active: Figure, f_inactive: Figure = None) -> None:
+    def ActiveFigure(self,pole: Pole, f_active: Figure, f_inactive: Figure = None) -> None:
+        for f in pole.figure:
+            if(f.name_figure == "O" or f.name_figure == "o"):
+                self.DrowPoleKing(pole,f.white)
+        
         if(f_active != None):
             self.DrowSquare((f_active.position_x - 1) * size_square,
             (f_active.position_y - 1) * size_square, size_square, "#007000")
@@ -266,20 +309,32 @@ class Drow():
                             "#505050" if (f_inactive.position_x + f_inactive.position_y)% 2 == 0 else "#808080" )
             self.DrowFigure(f_inactive.position_x,f_inactive.position_y,f_inactive.name_figure)        
 
-    def DrowCheck(self, pole: Pole, white: bool) -> None:
+    def DrowPoleKing(self, pole: Pole, white: bool) -> None:
         king = None
         for f in pole.figure:
             if(f.name_figure == ("O" if white else "o")):
                 king = f
+
+        if(king.attacking == king.attacking_old):
+            return 
         
+        color = ("#505050" if (king.position_x + king.position_y)%2 == 0 else "#808080")
+        if(king.attacking):
+            color = "#700000"
+
         self.DrowSquare((king.position_x - 1) * size_square, 
                         (king.position_y - 1) * size_square,
                          size_square,
-                         "#700000")
+                         color)
         
         self.DrowFigure(king.position_x, king.position_y, king.name_figure)
+        king.attacking_old = king.attacking
 
     def UpdatePole(self, pole: Pole) -> None:
+        for f in pole.figure:
+            if(f.name_figure == "O" or f.name_figure == "o"):
+                self.DrowPoleKing(pole,f.white)
+
         if(len(self.old_figure) == len(pole.figure)):
             for i in range(len(pole.figure)):
                 f1 = self.old_figure[i]
@@ -287,13 +342,7 @@ class Drow():
                 if(f1.position_x != f2.position_x or f1.position_y != f2.position_y):
                     self.DrowSquare((f1.position_x - 1) * size_square, (f1.position_y - 1) * size_square,
                         size_square, "#505050" if (f1.position_x + f1.position_y)% 2 == 0 else "#808080" )
-                    string = ""
-                    if ord(f2.name_figure) > 90:
-                        string = chr(ord(f2.name_figure) - 32)
-                        string += string
-                    else:
-                        string = f2.name_figure
-                    self.DrowFigure(f2.position_x,f2.position_y,string)
+                    self.DrowFigure(f2.position_x,f2.position_y,f2.name_figure)
         else:
             f1 = None
             f2 = None 
@@ -323,14 +372,7 @@ class Drow():
                         size_square, "#505050" if (f1.position_x + f1.position_y)% 2 == 0 else "#808080" )
             self.DrowSquare((f2.position_x - 1) * size_square, (f2.position_y - 1) * size_square,
                         size_square, "#505050" if (f2.position_x + f2.position_y)% 2 == 0 else "#808080" )
-            
-            string = ""
-            if ord(f2.name_figure) > 90:
-                string = chr(ord(f2.name_figure) - 32)
-                string += string
-            else:
-                string = f2.name_figure
-            self.DrowFigure(f2.position_x,f2.position_y,string)
+            self.DrowFigure(f2.position_x,f2.position_y,f2.name_figure)
 
         
 
@@ -415,8 +457,6 @@ class Gamer():
         return False
 
     def TapToScreen(self,x,y) -> bool:
-        if(self.pole.СheckСheck(self.pole, self.white)):
-            self.pole.drow.DrowCheck(self.pole, self.white)
         # Get Info
         pos_x = (int)((x + size_square*4) / size_square + 1)
         pos_y = (int)((y + size_square*4) / size_square + 1)
@@ -452,20 +492,33 @@ class Gamer():
                         f.active = True
                         f_act = f
 
-                self.pole.drow.ActiveFigure(f_act, f_pass)
+                self.pole.drow.ActiveFigure(self.pole, f_act, f_pass)
             # if not have active figure
             else: 
                 for f in self.pole.figure:
                     if(f.position_x == pos_x and f.position_y == pos_y):
                         f.active = True
-                        self.pole.drow.ActiveFigure(f)
+                        self.pole.drow.ActiveFigure(self.pole, f)
                         
         else:
             if(have_active_figure and active_figure.MoveToPosition(pos_x, pos_y)):
-                self.pole.drow.UpdatePole(self.pole)
 
                 if(self.pole.СheckСheck(self.pole, not self.white)):
-                    self.pole.drow.DrowCheck(self.pole, not self.white)
+                    for f in self.pole.figure:
+                        if(f.name_figure == ("O" if not self.white else "o")):
+                            f.attacking = True
+
+                if(not self.pole.СheckСheck(self.pole, self.white)):
+                    for f in self.pole.figure:
+                        if(f.name_figure == ("O" if self.white else "o")):
+                            f.attacking = False
+                else:
+                    for f in self.pole.figure:
+                        if(f.name_figure == ("O" if self.white else "o")):
+                            f.attacking = True
+
+                self.pole.drow.UpdatePole(self.pole)
+
                 return False
 
         if(not have_active_figure):
