@@ -9,14 +9,16 @@ class Pole():
     figure: Figure = []
     drow: Drow = None
 
-    def __init__(self, drow: Drow):
-
-        self.drow = drow
+    def __init__(self):
+        self.drow = Drow()
         screen = t.Screen()
         NameGifFile = ['P','B','K','O','Q','R']
         for name in NameGifFile:
-            screen.addshape(name + '.gif')
-            screen.addshape(name * 2 + '.gif')
+            screen.addshape('figure/' + name + '.gif')
+            screen.addshape('figure/' + name * 2 + '.gif')
+
+    def ActiveFigure(self, f_active: Figure = None, f_inactive: Figure = None) -> None:
+        self.drow.ActiveFigure(self, f_active, f_inactive)
 
     def FigureInPosition(self, x: int, y: int) -> Figure:
         for f in self.figure:
@@ -58,8 +60,21 @@ class Pole():
     def DrowPole(self) -> None:
         self.drow.DrowPole(self)
 
-    def AttackCell(self, x: int, y: int, white: bool) -> bool:
-        pass
+    def UpdatePole(self) -> None:  
+        self.drow.UpdatePole(self)
+
+    def PawnToQueen(self) -> None:
+        for i in range(len(self.figure)):
+            f = self.figure[i]
+            if(f.name_figure == "P" or f.name_figure == "p"):
+                if(f.position_y == (8 if f.white else 1) and 
+                    f.name_figure == ("P" if f.white else "p")):
+                    self.figure[i] = Queen(f.position_x, f.position_y, self, ("Q" if f.white else "q"))
+
+    def UpdateCheck(self) -> None:
+        for f in self.figure:
+            if(f.name_figure == "O" or f.name_figure == "o"):
+                f.attacking = self.СheckСheck(self, (True if f.name_figure == "O" else False))
 
     def СheckСheck(self, pole, white: bool) -> bool:
         king = None
@@ -67,6 +82,9 @@ class Pole():
             if(f.name_figure == ("O" if white else "o")):
                 king = f
                 break
+
+        if(king == None):
+            return False
 
         for j in range(4): 
             for i in range(1,8):
@@ -255,12 +273,15 @@ class Pawn(Figure):
             if(self.position_x == x and self.position_y + (1 if self.white else -1) == y):
                 self.position_y = y
                 self.startposition = False
+                self.pole.PawnToQueen()
                 return True
             
             if(self.position_x == x and self.position_y + (2 if self.white else -2) == y and self.startposition):
                 self.position_y = y
                 self.startposition = False
+                self.pole.PawnToQueen()
                 return True
+
         elif(figure.white != self.white):
             if((self.position_x + 1 == x or self.position_x - 1 == x) 
                     and self.position_y + (1 if self.white else -1) == y):
@@ -268,6 +289,7 @@ class Pawn(Figure):
                 self.position_y = y
                 self.position_x = x
                 self.startposition = False
+                self.pole.PawnToQueen()
                 return True
 
         return False
@@ -403,7 +425,7 @@ class Drow():
         player.penup()
         player.speed(0)
         player.goto((x-1)*size_square+size_square/2-size_square*4,(y-1)*size_square+size_square/2-size_square*4)
-        player.shape(string + '.gif')
+        player.shape('figure/' + string + '.gif')
 
         t.tracer(0) #mega speed drow
 
@@ -456,76 +478,50 @@ class Gamer():
                 return True
         return False
 
+    def ChangeActiveFigure(self, pos_x: int, pos_y: int) -> None:        
+        f_act = None
+        f_pass = None
+        not_figure_active_two = True
+
+        for f in self.pole.figure:
+            if(f.active):
+                f.active = False
+                f_pass = f
+                if(f.position_x == pos_x and f.position_y == pos_y):
+                    not_figure_active_two = False
+                    
+        for f in self.pole.figure:
+            if(f.position_x == pos_x and f.position_y == pos_y and not_figure_active_two):
+                f.active = True
+                f_act = f
+
+        self.pole.ActiveFigure(f_act, f_pass)
+                        
     def TapToScreen(self,x,y) -> bool:
         # Get Info
         pos_x = (int)((x + size_square*4) / size_square + 1)
         pos_y = (int)((y + size_square*4) / size_square + 1)
-        if(pos_x < 1 or pos_x > 8 or pos_y < 0 or pos_y > 8):
+        
+        if(pos_x < 1 or pos_x > 8 or pos_y < 1 or pos_y > 8):
             return True
-
-        not_figure_active_two = True
-        have_active_figure = False
-        active_figure: Figure
-        for f in self.pole.figure:
-            if(f.white == self.white and f.active):
-                have_active_figure = True
-                active_figure = f
-
 
         # If in his figure
         if(self.TapInHisFigure(pos_x,pos_y)):
-            # if have active figure 
-            if(have_active_figure):
-                f_act = None
-                f_pass = None
-
-                for f in self.pole.figure:
-                    if(f.active ):
-                        f.active = False
-                        f_pass = f
-                        if(f.position_x == pos_x and f.position_y == pos_y):
-                            not_figure_active_two = False
-                            
-
-                for f in self.pole.figure:
-                    if(f.position_x == pos_x and f.position_y == pos_y and not_figure_active_two):
-                        f.active = True
-                        f_act = f
-
-                self.pole.drow.ActiveFigure(self.pole, f_act, f_pass)
-            # if not have active figure
-            else: 
-                for f in self.pole.figure:
-                    if(f.position_x == pos_x and f.position_y == pos_y):
-                        f.active = True
-                        self.pole.drow.ActiveFigure(self.pole, f)
-                        
+            self.ChangeActiveFigure(pos_x, pos_y)
         else:
-            if(have_active_figure and active_figure.MoveToPosition(pos_x, pos_y)):
+            active_figure: Figure = None
+            for f in self.pole.figure:
+                if(f.white == self.white and f.active):
+                    active_figure = f
+                    
+            if(active_figure == None):
+                return True
 
-                if(self.pole.СheckСheck(self.pole, not self.white)):
-                    for f in self.pole.figure:
-                        if(f.name_figure == ("O" if not self.white else "o")):
-                            f.attacking = True
-
-                if(not self.pole.СheckСheck(self.pole, self.white)):
-                    for f in self.pole.figure:
-                        if(f.name_figure == ("O" if self.white else "o")):
-                            f.attacking = False
-                else:
-                    for f in self.pole.figure:
-                        if(f.name_figure == ("O" if self.white else "o")):
-                            f.attacking = True
-
-                self.pole.drow.UpdatePole(self.pole)
-
+            if(active_figure.MoveToPosition(pos_x, pos_y)):
+                self.pole.UpdateCheck()
+                self.pole.UpdatePole()
                 return False
 
-        if(not have_active_figure):
-            return True
-
-        
-        
         return True
 
 
@@ -539,7 +535,7 @@ def TapToScreen(x,y) -> bool:
 
 
 if "__main__" == __name__:
-    pole = Pole(Drow())
+    pole = Pole()
     pole.NormalFigurePosition()
     pole.DrowPole()
 
