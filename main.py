@@ -1,3 +1,4 @@
+import turtle
 import turtle as t
 
 size_square = 60
@@ -14,8 +15,9 @@ class Pole():
         screen = t.Screen()
         NameGifFile = ['P','B','K','O','Q','R']
         for name in NameGifFile:
-            screen.addshape('figure/' + name + '.gif')
             screen.addshape('figure/' + name * 2 + '.gif')
+            screen.addshape('figure/' + name + '.gif')
+
 
     def ActiveFigure(self, f_active: Figure = None, f_inactive: Figure = None) -> None:
         self.drow.ActiveFigure(self, f_active, f_inactive)
@@ -25,6 +27,10 @@ class Pole():
             if(f.position_x == x and f.position_y == y):
                 return f
         return None
+
+    def AddFigure(self, x: int, y: int, name: str) -> None:
+        self.figure.append(Figure(x,y,self,name))
+
 
     def NormalFigurePosition(self) -> None:
         for i in range(8):
@@ -297,13 +303,15 @@ class Pawn(Figure):
 
 class Drow():
     old_figure: Figure = []
+    t: turtle = None
 
     def __init__(self):
-        t.hideturtle()
-        t.tracer(0)                       #mega speed drow
-        t.setup(size_square*10,size_square*10)                  #size window
-        t.bgcolor("#707070")              #color background
-        t.penup()
+        self.t = turtle
+        self.t.hideturtle()
+        self.t.tracer(0)                       #mega speed drow
+        self.t.setup(size_square*10,size_square*10)                  #size window
+        self.t.bgcolor("#707070")              #color background
+        self.t.penup()
             
     def DrowPole(self, pole: Pole) -> None:
         self.DrowTable()    
@@ -412,7 +420,7 @@ class Drow():
             self.DrowFigure(f.position_x, f.position_y, f.name_figure)
         
     def DrowFigure(self, x: int, y: int, name: str) -> None:
-        t.tracer(1)       # stop mega speed
+        self.t.tracer(1)       # stop mega speed
 
         string = ""
         if ord(name) > 90:
@@ -421,13 +429,13 @@ class Drow():
         else:
             string = name
 
-        player = t.Turtle()
+        player = self.t.Turtle()
         player.penup()
         player.speed(0)
         player.goto((x-1)*size_square+size_square/2-size_square*4,(y-1)*size_square+size_square/2-size_square*4)
         player.shape('figure/' + string + '.gif')
 
-        t.tracer(0) #mega speed drow
+        self.t.tracer(0) #mega speed drow
 
     def DrowTable(self) -> None:
         for i in range(8): # 
@@ -436,27 +444,27 @@ class Drow():
                 "#505050" if (i + j)%2 == 0 else "#808080")
 
     def GoTo(self,x,y) -> None:
-        t.goto(x - size_square*4,y - size_square*4)
+        self.t.goto(x - size_square*4,y - size_square*4)
     
     def DrowSquare(self,x,y,size, color = "#505050") -> None:
-        t.color(color,color) 
+        self.t.color(color,color) 
         self.GoTo(x,y)
-        t.pendown()
-        t.begin_fill()
+        self.t.pendown()
+        self.t.begin_fill()
         self.GoTo(x,y+size)
         self.GoTo(x+size,y+size)        
         self.GoTo(x+size,y)
-        t.end_fill()
-        t.penup()
+        self.t.end_fill()
+        self.t.penup()
 
     def DrowСircle(self,x,y,radius = size_square * 0.15, color = "#101010") -> None:
-        t.color(color,color) 
+        self.t.color(color,color) 
         self.GoTo(x + size_square/2,y + (size_square - radius*2) / 2)
-        t.pendown()
-        t.begin_fill()
-        t.circle(radius)
-        t.end_fill()
-        t.penup()
+        self.t.pendown()
+        self.t.begin_fill()
+        self.t.circle(radius)
+        self.t.end_fill()
+        self.t.penup()
 
 
 class Gamer():
@@ -534,14 +542,51 @@ def TapToScreen(x,y) -> bool:
         gamer1.active = not gamer2.active
 
 
+def CreatePawn(pole):
+    for x in range(1,8+1):
+        for y in range (1,8+1,2):
+            pole.AddFigure(x,y,"P")
+
+def CreateRook(pole):
+    for i in range(1,8+1):
+        pole.AddFigure(i,i,"R")
+
+def CreateBishop(pole):
+    for i in range(1,8+1):
+        pole.AddFigure(1,i,"B")
+    for i in range(2,7+1):
+        pole.AddFigure(8,i,"B")
+
+def CreateQueen(pole):
+    pole.AddFigure(1,3,"Q")
+    pole.AddFigure(2,8,"Q")
+    pole.AddFigure(3,4,"Q")
+    pole.AddFigure(4,7,"Q")
+    pole.AddFigure(5,1,"Q")
+    pole.AddFigure(6,6,"Q")
+    pole.AddFigure(7,2,"Q")
+    pole.AddFigure(8,5,"Q")
+
+def CreateKnight(pole):
+    for x in range(1,8+1):
+        for y in ([1,4,7]):
+            pole.AddFigure(x,y,"K")
+
 if "__main__" == __name__:
     pole = Pole()
-    pole.NormalFigurePosition()
+    name_figure = "knight"
+
+
+    if name_figure == "pawn": CreatePawn(pole)
+    if name_figure == "rook": CreateRook(pole)
+    if name_figure == "bishop": CreateBishop(pole)
+    if name_figure == "queen": CreateQueen(pole)
+    if name_figure == "knight": CreateKnight(pole)
     pole.DrowPole()
 
     gamer1 = Gamer(True, True, pole)
     gamer2 = Gamer(False,True, pole)
 
-    t.onscreenclick(TapToScreen) #function tap to deck
+    pole.drow.t.onscreenclick(TapToScreen) #function tap to deck
 
-    t.mainloop()
+    pole.drow.t.mainloop()
